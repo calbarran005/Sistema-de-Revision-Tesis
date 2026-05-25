@@ -177,6 +177,54 @@ async function main() {
     },
   });
 
+  // Documento Patrón (Template) Demo
+  const template = await prisma.thesisTemplate.upsert({
+    where: { id: 'template-meng-001' },
+    update: {},
+    create: {
+      id: 'template-meng-001',
+      programId: program.id,
+      name: 'Estructura Estándar de Tesis de Maestría - Ingeniería',
+      version: '1.0',
+      description: 'Plantilla oficial para proyectos de investigación en ingeniería de software',
+      isActive: true,
+      isProcessed: true,
+      fileName: 'plantilla_maestria_v1.pdf',
+      filePath: 'templates/plantilla_maestria_v1.pdf',
+      fileSize: 1024 * 500, // 500 KB
+      mimeType: 'application/pdf',
+      totalSections: 5,
+      createdBy: 'admin-system',
+    },
+  });
+
+  // Secciones del Template
+  const sections = [
+    { name: 'Introducción', title: 'Capítulo 1: Introducción', level: 1, orderIndex: 1, minPages: 5, maxPages: 10 },
+    { name: 'Marco Teórico', title: 'Capítulo 2: Marco Teórico', level: 1, orderIndex: 2, minPages: 15, maxPages: 30 },
+    { name: 'Metodología', title: 'Capítulo 3: Metodología', level: 1, orderIndex: 3, minPages: 10, maxPages: 20 },
+    { name: 'Resultados', title: 'Capítulo 4: Resultados', level: 1, orderIndex: 4, minPages: 15, maxPages: 40 },
+    { name: 'Conclusiones', title: 'Capítulo 5: Conclusiones y Recomendaciones', level: 1, orderIndex: 5, minPages: 5, maxPages: 10 },
+  ];
+
+  for (const section of sections) {
+    // Usamos create en lugar de upsert para las secciones si no tenemos un identificador único claro
+    // o simplemente las borramos antes. Pero como es un seed, intentaremos encontrarlas por nombre/template.
+    const existingSection = await prisma.templateSection.findFirst({
+      where: { templateId: template.id, orderIndex: section.orderIndex }
+    });
+
+    if (!existingSection) {
+      await prisma.templateSection.create({
+        data: {
+          templateId: template.id,
+          ...section,
+          isRequired: true,
+        },
+      });
+    }
+  }
+
   console.log('✅ Seed completado exitosamente');
   console.log('\n📋 Usuarios de prueba:');
   console.log('  👤 Admin:       admin@universidad.edu.co       / Admin123!');

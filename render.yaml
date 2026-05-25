@@ -4,7 +4,7 @@ services:
     name: tesisrevision-api
     runtime: node
     plan: free
-    buildCommand: npm install && npx prisma generate --schema=packages/database/prisma/schema.prisma && npm run build --workspace=apps/api
+    buildCommand: PUPPETEER_SKIP_DOWNLOAD=true npm install && npx prisma generate --schema=packages/database/prisma/schema.prisma && npm run build --workspace=apps/api
     startCommand: npx prisma migrate deploy --schema=packages/database/prisma/schema.prisma && node apps/api/dist/main.js
     envVars:
       - key: NODE_ENV
@@ -92,7 +92,7 @@ services:
     name: tesisrevision-web
     runtime: node
     plan: free
-    buildCommand: npm install --include=dev && npm run build --workspace=apps/web
+    buildCommand: PUPPETEER_SKIP_DOWNLOAD=true npm install --include=dev && npm run build --workspace=apps/web
     startCommand: npm run start --workspace=apps/web
     envVars:
       - key: NODE_ENV

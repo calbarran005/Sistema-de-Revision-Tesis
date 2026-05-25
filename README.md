@@ -32,7 +32,7 @@ Sistema completo de revisión automatizada con IA para avances de tesis universi
 ### 1. Clonar y configurar variables de entorno
 
 ```bash
-cd "santos sistema s6"
+cd "Sistema Tesis"
 cp .env.example .env
 # Editar .env con tus valores (ver sección Variables de Entorno)
 ```
@@ -122,16 +122,6 @@ npm run dev
 | MinIO Console | http://localhost:9001 |
 | MailHog | http://localhost:8025 |
 
-### Usuarios de Prueba
-
-| Rol | Email | Contraseña |
-|-----|-------|-----------|
-| Admin | admin@universidad.edu.co | Admin123! |
-| Coordinador | coordinador@universidad.edu.co | Coord123! |
-| Asesor | asesor@universidad.edu.co | Asesor123! |
-| Estudiante | estudiante@universidad.edu.co | Student123! |
-
----
 
 ## Variables de Entorno Clave
 

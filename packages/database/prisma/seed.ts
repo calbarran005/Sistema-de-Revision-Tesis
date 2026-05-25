@@ -22,7 +22,7 @@ async function main() {
     },
   });
 
-  const programEdu = await prisma.academicProgram.upsert({
+  await prisma.academicProgram.upsert({
     where: { code: 'MEDU-001' },
     update: {},
     create: {
@@ -87,7 +87,7 @@ async function main() {
     },
   });
 
-  await prisma.advisorProfile.upsert({
+  const advisorProfile = await prisma.advisorProfile.upsert({
     where: { userId: advisor.id },
     update: {},
     create: {
@@ -114,10 +114,6 @@ async function main() {
     },
   });
 
-  const advisorProfile = await prisma.advisorProfile.findUnique({
-    where: { userId: advisor.id },
-  });
-
   await prisma.studentProfile.upsert({
     where: { userId: student.id },
     update: {},
@@ -125,7 +121,7 @@ async function main() {
       userId: student.id,
       studentCode: 'EST-2024-001',
       programId: program.id,
-      advisorId: advisorProfile!.id,
+      advisorId: advisorProfile.id,
       thesisTitle: 'Desarrollo de un Sistema de Inteligencia Artificial para la Detección de Plagio en Documentos Académicos',
       enrollmentYear: 2024,
       semester: 2,

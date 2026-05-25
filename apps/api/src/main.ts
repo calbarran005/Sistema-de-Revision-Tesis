@@ -1,7 +1,10 @@
 import * as dotenv from 'dotenv';
 import * as path from 'path';
-// Cargar .env con override:true para que siempre prevalezca sobre variables del sistema
-dotenv.config({ path: path.resolve(process.cwd(), '.env'), override: true });
+// Cargar .env solo si no estamos en producción y sin forzar el override
+// para permitir que las variables de entorno de Render prevalezcan
+if (process.env.NODE_ENV !== 'production') {
+  dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+}
 
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';

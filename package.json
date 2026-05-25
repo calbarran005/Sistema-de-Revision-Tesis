@@ -23,6 +23,9 @@
     "concurrently": "^9.1.2",
     "typescript": "^5.7.3"
   },
+  "prisma": {
+    "seed": "npx ts-node packages/database/prisma/seed.ts"
+  },
   "engines": {
     "node": ">=20.0.0"
   }

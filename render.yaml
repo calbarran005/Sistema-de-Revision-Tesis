@@ -92,7 +92,7 @@ services:
     name: tesisrevision-web
     runtime: node
     plan: free
-    buildCommand: npm install && npm run build --workspace=apps/web
+    buildCommand: npm install --include=dev && npm run build --workspace=apps/web
     startCommand: npm run start --workspace=apps/web
     envVars:
       - key: NODE_ENV

@@ -1,4 +1,4 @@
-# Docker Compose para Santos Sistema S6
+# Docker Compose para sis-revision-tesis
 # La base de datos MySQL se provee por XAMPP (puerto 3306 local)
 # Este compose levanta los servicios de soporte: Redis, MinIO, MailHog
 

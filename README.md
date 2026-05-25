@@ -1,4 +1,4 @@
-# Santos Sistema S6 — Sistema de Gestión y Evaluación Inteligente de Avances de Tesis
+# Sistema de Revisión de Tesis — Gestión y Evaluación Inteligente de Avances de Tesis
 
 Sistema completo de revisión automatizada con IA para avances de tesis universitarias.
 
@@ -13,7 +13,7 @@ Sistema completo de revisión automatizada con IA para avances de tesis universi
 | Base de datos | **MySQL vía XAMPP** (Prisma ORM) |
 | IA | OpenAI GPT-4o-mini / Ollama (configurable) |
 | Colas | BullMQ + Redis |
-| Almacenamiento | MinIO (S3-compatible) |
+| Almacenamiento | Cloudflare R2 / MinIO (S3-compatible) |
 | Email | Nodemailer + MailHog (dev) |
 
 ---
@@ -32,7 +32,7 @@ Sistema completo de revisión automatizada con IA para avances de tesis universi
 ### 1. Clonar y configurar variables de entorno
 
 ```bash
-cd "Sistema Tesis"
+cd ""
 cp .env.example .env
 # Editar .env con tus valores (ver sección Variables de Entorno)
 ```
@@ -121,7 +121,19 @@ npm run dev
 | Swagger Docs | http://localhost:3001/api/docs |
 | MinIO Console | http://localhost:9001 |
 | MailHog | http://localhost:8025 |
+| API (producción) | https://tesisrevision-api.onrender.com/api/v1 |
+| Frontend (producción) | https://tesisrevision-web.onrender.com |
 
+### Usuarios de Prueba
+
+| Rol | Email | Contraseña |
+|-----|-------|-----------|
+| Admin | admin@universidad.edu.co | Admin123! |
+| Coordinador | coordinador@universidad.edu.co | Coord123! |
+| Asesor | asesor@universidad.edu.co | Asesor123! |
+| Estudiante | estudiante@universidad.edu.co | Student123! |
+
+---
 
 ## Variables de Entorno Clave
 
@@ -130,16 +142,16 @@ npm run dev
 DATABASE_URL="mysql://root:@localhost:3306/tesis_db"
 
 # OpenAI (obtener en platform.openai.com)
-OPENAI_API_KEY="sk-proj-..."
+OPENAI_API_KEY=""
 AI_MODEL="gpt-4o-mini"          # gpt-4o para mayor calidad
 
 # Redis (Docker)
 REDIS_URL="redis://:redis_pass_2024@localhost:6379"
 
-# MinIO (Docker)
-MINIO_ENDPOINT="localhost"
-MINIO_ACCESS_KEY="santos_admin"
-MINIO_SECRET_KEY="santos_minio_2024"
+# Storage (local: MinIO / producción: Cloudflare R2)
+MINIO_ENDPOINT="localhost"           # prod: <ACCOUNT_ID>.r2.cloudflarestorage.com
+MINIO_ACCESS_KEY="santos_admin"      # prod: Access Key ID de R2
+MINIO_SECRET_KEY="santos_minio_2024" # prod: Secret Access Key de R2
 ```
 
 ### Modo sin OpenAI (Ollama local gratuito)
@@ -186,7 +198,7 @@ Estudiante sube PDF/Word
 ## Estructura del Proyecto
 
 ```
-santos-sistema-s6/
+sis-revision-tesis/
 ├── apps/
 │   ├── api/                    # NestJS Backend
 │   │   └── src/

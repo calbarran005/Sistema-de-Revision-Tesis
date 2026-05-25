@@ -31,7 +31,18 @@ async function bootstrap() {
 
   // CORS
   app.enableCors({
-    origin: [appUrl, 'http://localhost:3000', 'http://localhost:3001'],
+    origin: (origin, callback) => {
+      const allowed = [
+        appUrl,
+        'http://localhost:3000',
+        'http://localhost:3001',
+      ];
+      if (!origin || allowed.includes(origin) || /\.onrender\.com$/.test(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS bloqueado: ${origin}`));
+      }
+    },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
     credentials: true,

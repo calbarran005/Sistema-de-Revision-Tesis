@@ -1,0 +1,703 @@
+// Prisma Schema - MySQL (XAMPP)
+// Sistema de Gestión y Evaluación de Avances de Tesis
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── ENUMS ───────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  STUDENT
+  ADVISOR
+  COORDINATOR
+  ADMIN
+}
+
+enum SubmissionStatus {
+  DRAFT
+  SUBMITTED
+  ANALYZING
+  PENDING_REVIEW
+  IN_REVIEW
+  OBSERVED
+  APPROVED
+  REJECTED
+}
+
+enum AnalysisStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum FindingSeverity {
+  CRITICAL
+  MAJOR
+  MINOR
+  SUGGESTION
+}
+
+enum FindingType {
+  STRUCTURAL_MISSING
+  STRUCTURAL_ORDER
+  CONTENT_QUALITY
+  CONTENT_COHERENCE
+  FORMAT_EXTENSION
+  FORMAT_CITATION
+  FORMAT_LANGUAGE
+  ORIGINALITY
+}
+
+enum ReviewStatus {
+  IN_PROGRESS
+  COMPLETED
+  FINALIZED
+}
+
+enum NotificationType {
+  SUBMISSION_RECEIVED
+  ANALYSIS_COMPLETED
+  REVIEW_ASSIGNED
+  REVIEW_COMPLETED
+  SUBMISSION_APPROVED
+  SUBMISSION_REJECTED
+  DEADLINE_REMINDER
+  SYSTEM_ALERT
+}
+
+enum ReportType {
+  INDIVIDUAL_REVIEW
+  BATCH_COMPARATIVE
+  MANAGEMENT_STATS
+  VERSION_COMPARISON
+  REVIEWER_PRODUCTIVITY
+}
+
+// ─── USUARIOS Y AUTENTICACIÓN ─────────────────────────────────────────────────
+
+model User {
+  id                String    @id @default(uuid())
+  email             String    @unique
+  password          String    @db.VarChar(255)
+  firstName         String    @db.VarChar(100)
+  lastName          String    @db.VarChar(100)
+  role              UserRole  @default(STUDENT)
+  avatarUrl         String?   @db.VarChar(500)
+  phone             String?   @db.VarChar(20)
+  isActive          Boolean   @default(true)
+  isEmailVerified   Boolean   @default(false)
+  resetPasswordToken String?  @db.VarChar(255)
+  resetPasswordExpires DateTime?
+  refreshToken      String?   @db.Text
+  lastLoginAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // Relaciones
+  studentProfile    StudentProfile?
+  advisorProfile    AdvisorProfile?
+  coordinatorPrograms CoordinatorProgram[]
+  notifications     Notification[]
+  auditLogs         AuditLog[]
+  sentEmails        EmailLog[]
+  createdReviews    HumanReview[]         @relation("ReviewerRelation")
+  reportRequests    ReportRequest[]
+
+  @@map("users")
+}
+
+model StudentProfile {
+  id              String    @id @default(uuid())
+  userId          String    @unique
+  studentCode     String    @unique @db.VarChar(50)
+  programId       String
+  advisorId       String?
+  thesisTitle     String?   @db.VarChar(500)
+  enrollmentYear  Int
+  semester        Int       @default(1)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  program         AcademicProgram @relation(fields: [programId], references: [id])
+  advisor         AdvisorProfile? @relation(fields: [advisorId], references: [id])
+  submissions     Submission[]
+
+  @@map("student_profiles")
+}
+
+model AdvisorProfile {
+  id              String    @id @default(uuid())
+  userId          String    @unique
+  employeeCode    String    @unique @db.VarChar(50)
+  department      String    @db.VarChar(200)
+  specialization  String?   @db.Text
+  maxStudents     Int       @default(10)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  students        StudentProfile[]
+  assignedReviews HumanReview[]   @relation("AssignedAdvisorRelation")
+
+  @@map("advisor_profiles")
+}
+
+model CoordinatorProgram {
+  id          String    @id @default(uuid())
+  userId      String
+  programId   String
+  assignedAt  DateTime  @default(now())
+
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  program     AcademicProgram @relation(fields: [programId], references: [id])
+
+  @@unique([userId, programId])
+  @@map("coordinator_programs")
+}
+
+// ─── PROGRAMAS ACADÉMICOS ─────────────────────────────────────────────────────
+
+model AcademicProgram {
+  id              String    @id @default(uuid())
+  name            String    @db.VarChar(300)
+  code            String    @unique @db.VarChar(20)
+  description     String?   @db.Text
+  faculty         String    @db.VarChar(200)
+  level           String    @db.VarChar(50)   // maestria, doctorado, especialización
+  durationSemesters Int     @default(4)
+  maxScore        Decimal   @default(5.0) @db.Decimal(5, 2)  // escala de nota máxima
+  minApprovalScore Decimal  @default(3.0) @db.Decimal(5, 2)
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  students        StudentProfile[]
+  coordinators    CoordinatorProgram[]
+  templates       ThesisTemplate[]
+
+  @@map("academic_programs")
+}
+
+// ─── DOCUMENTOS PATRÓN (TEMPLATES INSTITUCIONALES) ───────────────────────────
+
+model ThesisTemplate {
+  id              String    @id @default(uuid())
+  programId       String
+  name            String    @db.VarChar(300)
+  version         String    @db.VarChar(20)
+  description     String?   @db.Text
+  isActive        Boolean   @default(true)
+  isProcessed     Boolean   @default(false)
+
+  // Archivo
+  fileName        String    @db.VarChar(255)
+  filePath        String    @db.VarChar(500)
+  fileSize        Int
+  mimeType        String    @db.VarChar(100)
+
+  // Estructura extraída por IA
+  extractedStructure Json?   // Array de secciones con metadatos
+  totalSections   Int       @default(0)
+
+  // Metadata de procesamiento
+  processedAt     DateTime?
+  processingError String?   @db.Text
+
+  createdBy       String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  program         AcademicProgram  @relation(fields: [programId], references: [id])
+  sections        TemplateSection[]
+  rubrics         EvaluationRubric[]
+  submissions     Submission[]
+  embeddings      TemplateEmbedding[]
+
+  @@map("thesis_templates")
+}
+
+model TemplateSection {
+  id              String    @id @default(uuid())
+  templateId      String
+  parentId        String?
+  name            String    @db.VarChar(300)
+  title           String    @db.VarChar(300)
+  level           Int       @default(1)       // 1=capítulo, 2=sección, 3=subsección
+  orderIndex      Int
+  isRequired      Boolean   @default(true)
+  minPages        Int?
+  maxPages        Int?
+  minWords        Int?
+  maxWords        Int?
+  description     String?   @db.Text
+  keywordHints    Json?     // Array of expected keywords
+  citationStyle   String?   @db.VarChar(50)  // APA, IEEE, Chicago
+  contentGuidelines String? @db.Text
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  template        ThesisTemplate  @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  parent          TemplateSection? @relation("SectionHierarchy", fields: [parentId], references: [id])
+  children        TemplateSection[] @relation("SectionHierarchy")
+  rubricCriteria  RubricCriterion[]
+
+  @@map("template_sections")
+}
+
+model EvaluationRubric {
+  id              String    @id @default(uuid())
+  templateId      String
+  name            String    @db.VarChar(300)
+  description     String?   @db.Text
+
+  // Pesos por dimensión (deben sumar 100)
+  structureWeight   Decimal @default(30) @db.Decimal(5, 2)
+  contentWeight     Decimal @default(40) @db.Decimal(5, 2)
+  formWeight        Decimal @default(20) @db.Decimal(5, 2)
+  originalityWeight Decimal @default(10) @db.Decimal(5, 2)
+
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  template        ThesisTemplate  @relation(fields: [templateId], references: [id])
+  criteria        RubricCriterion[]
+
+  @@map("evaluation_rubrics")
+}
+
+model RubricCriterion {
+  id              String    @id @default(uuid())
+  rubricId        String
+  sectionId       String?
+  name            String    @db.VarChar(300)
+  description     String    @db.Text
+  weight          Decimal   @db.Decimal(5, 2)
+  maxScore        Decimal   @db.Decimal(5, 2)
+  scoringGuide    Json      // {excellent, good, acceptable, insufficient}
+  dimension       String    @db.VarChar(50)   // structure, content, form, originality
+  createdAt       DateTime  @default(now())
+
+  rubric          EvaluationRubric @relation(fields: [rubricId], references: [id], onDelete: Cascade)
+  section         TemplateSection?  @relation(fields: [sectionId], references: [id])
+
+  @@map("rubric_criteria")
+}
+
+model TemplateEmbedding {
+  id              String    @id @default(uuid())
+  templateId      String
+  sectionName     String    @db.VarChar(300)
+  chunkIndex      Int
+  chunkText       String    @db.LongText
+  embedding       Json      // Array de floats (1536 dimensiones para text-embedding-3-large)
+  model           String    @db.VarChar(100)
+  createdAt       DateTime  @default(now())
+
+  template        ThesisTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@map("template_embeddings")
+}
+
+// ─── AVANCES/ENTREGAS (SUBMISSIONS) ──────────────────────────────────────────
+
+model Submission {
+  id              String            @id @default(uuid())
+  studentId       String
+  templateId      String
+
+  // Metadata del avance
+  title           String            @db.VarChar(500)
+  description     String?           @db.Text
+  versionNumber   Int               @default(1)
+  parentSubmissionId String?        // Para versionado
+
+  // Estado
+  status          SubmissionStatus  @default(DRAFT)
+  submittedAt     DateTime?
+
+  // Período académico
+  academicPeriod  String            @db.VarChar(50)  // ej: "2024-2"
+  deliveryNumber  Int               @default(1)       // Entrega 1, 2, 3...
+
+  // Archivo principal
+  fileName        String            @db.VarChar(255)
+  filePath        String            @db.VarChar(500)
+  fileSize        Int
+  mimeType        String            @db.VarChar(100)
+
+  // Metadatos extraídos del documento
+  extractedTitle  String?           @db.VarChar(500)
+  extractedAuthor String?           @db.VarChar(300)
+  pageCount       Int?
+  wordCount       Int?
+  extractedText   Json?             // Texto por secciones {sectionName: text}
+
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  student         StudentProfile    @relation(fields: [studentId], references: [id])
+  template        ThesisTemplate    @relation(fields: [templateId], references: [id])
+  parentSubmission Submission?      @relation("VersionHistory", fields: [parentSubmissionId], references: [id])
+  versions        Submission[]      @relation("VersionHistory")
+  aiAnalysis      AIAnalysis?
+  humanReview     HumanReview?
+  embeddings      SubmissionEmbedding[]
+  reportRequests  ReportRequest[]
+
+  @@map("submissions")
+}
+
+model SubmissionEmbedding {
+  id              String    @id @default(uuid())
+  submissionId    String
+  sectionName     String    @db.VarChar(300)
+  chunkIndex      Int
+  chunkText       String    @db.LongText
+  embedding       Json      // Array de floats
+  model           String    @db.VarChar(100)
+  createdAt       DateTime  @default(now())
+
+  submission      Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@map("submission_embeddings")
+}
+
+// ─── ANÁLISIS DE IA ───────────────────────────────────────────────────────────
+
+model AIAnalysis {
+  id              String          @id @default(uuid())
+  submissionId    String          @unique
+
+  // Estado del análisis
+  status          AnalysisStatus  @default(PENDING)
+  startedAt       DateTime?
+  completedAt     DateTime?
+  processingTimeMs Int?
+  errorMessage    String?         @db.Text
+
+  // Modelo usado
+  aiModel         String          @db.VarChar(100)  // gpt-4o, gpt-4o-mini, llama3, etc.
+  aiProvider      String          @db.VarChar(50)   // openai, ollama
+
+  // Scores por dimensión (0-100)
+  structureScore  Decimal?        @db.Decimal(5, 2)
+  contentScore    Decimal?        @db.Decimal(5, 2)
+  formScore       Decimal?        @db.Decimal(5, 2)
+  originalityScore Decimal?       @db.Decimal(5, 2)
+
+  // Score final ponderado (0-100)
+  complianceScore Decimal?        @db.Decimal(5, 2)
+
+  // Nota final en escala de la institución
+  finalGrade      Decimal?        @db.Decimal(5, 2)
+  gradeScale      Decimal         @default(5.0) @db.Decimal(5, 2)
+
+  // Resumen ejecutivo generado por IA
+  executiveSummary String?        @db.LongText
+  strengths       Json?           // Array de strings
+  weaknesses      Json?           // Array de strings
+  priorities      Json?           // Array de correcciones prioritarias
+  estimatedProgress String?       @db.VarChar(100)  // ej: "60% completado"
+
+  // Estadísticas de estructura
+  totalSectionsExpected Int       @default(0)
+  totalSectionsFound    Int       @default(0)
+  missingSections       Json?     // Array de sección names
+  extraSections         Json?     // Secciones no esperadas
+  disorderedSections    Json?     // Secciones en orden incorrecto
+
+  // Tokens consumidos
+  promptTokens    Int             @default(0)
+  completionTokens Int            @default(0)
+  totalCost       Decimal?        @db.Decimal(10, 6)  // En USD
+
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  submission      Submission      @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  findings        AIFinding[]
+  humanReview     HumanReview?
+
+  @@map("ai_analyses")
+}
+
+model AIFinding {
+  id              String          @id @default(uuid())
+  analysisId      String
+
+  // Clasificación
+  severity        FindingSeverity
+  type            FindingType
+  dimension       String          @db.VarChar(50)  // structure, content, form, originality
+
+  // Ubicación en el documento
+  sectionName     String?         @db.VarChar(300)
+  approximatePage Int?
+  paragraphHint   String?         @db.Text
+
+  // Contenido del hallazgo
+  title           String          @db.VarChar(500)
+  description     String          @db.Text          // Qué se encontró o qué falta
+
+  // Instrucciones de corrección
+  correctionTitle    String       @db.VarChar(300)
+  correctionSteps    Json         // Array de pasos de corrección
+  correctionExample  String?      @db.LongText  // Ejemplo de cómo debería quedar
+
+  // Recomendaciones adicionales
+  recommendations    String?      @db.Text
+  suggestedSources   Json?        // Array de fuentes sugeridas
+  estimatedEffort    String?      @db.VarChar(100)  // "30 minutos", "2-3 horas"
+
+  // Estado de revisión humana
+  isAcceptedByReviewer Boolean    @default(false)
+  isModifiedByReviewer Boolean    @default(false)
+  reviewerNote        String?     @db.Text
+
+  orderIndex      Int             @default(0)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  analysis        AIAnalysis      @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+
+  @@map("ai_findings")
+}
+
+// ─── REVISIÓN HUMANA ──────────────────────────────────────────────────────────
+
+model HumanReview {
+  id              String        @id @default(uuid())
+  submissionId    String        @unique
+  analysisId      String?       @unique
+  reviewerId      String
+  advisorId       String?
+
+  status          ReviewStatus  @default(IN_PROGRESS)
+
+  // Scores humanos (0-100)
+  humanStructureScore  Decimal? @db.Decimal(5, 2)
+  humanContentScore    Decimal? @db.Decimal(5, 2)
+  humanFormScore       Decimal? @db.Decimal(5, 2)
+  humanOriginalityScore Decimal? @db.Decimal(5, 2)
+  humanComplianceScore  Decimal? @db.Decimal(5, 2)
+
+  // Nota final ajustada por el revisor
+  adjustedGrade   Decimal?      @db.Decimal(5, 2)
+  gradeJustification String?    @db.Text
+
+  // Comentarios generales
+  generalComments String?       @db.LongText
+  strengthsNote   String?       @db.Text
+  improvementNote String?       @db.Text
+  decisionNote    String?       @db.Text  // Motivo de aprobación/rechazo
+
+  // Metadatos
+  startedAt       DateTime      @default(now())
+  completedAt     DateTime?
+  finalizedAt     DateTime?
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  submission      Submission    @relation(fields: [submissionId], references: [id])
+  analysis        AIAnalysis?   @relation(fields: [analysisId], references: [id])
+  reviewer        User          @relation("ReviewerRelation", fields: [reviewerId], references: [id])
+  advisor         AdvisorProfile? @relation("AssignedAdvisorRelation", fields: [advisorId], references: [id])
+  comments        ReviewComment[]
+  checklistItems  ChecklistItem[]
+
+  @@map("human_reviews")
+}
+
+model ReviewComment {
+  id              String    @id @default(uuid())
+  reviewId        String
+
+  content         String    @db.LongText
+  pageNumber      Int?
+  paragraphIndex  Int?
+  sectionName     String?   @db.VarChar(300)
+  quotedText      String?   @db.Text
+
+  isPrivate       Boolean   @default(false)  // Solo visible para el asesor
+  isResolved      Boolean   @default(false)
+
+  parentId        String?   // Para respuestas a comentarios
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  review          HumanReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  parent          ReviewComment?  @relation("CommentThread", fields: [parentId], references: [id])
+  replies         ReviewComment[] @relation("CommentThread")
+
+  @@map("review_comments")
+}
+
+model ChecklistItem {
+  id              String    @id @default(uuid())
+  reviewId        String
+  criterionName   String    @db.VarChar(300)
+  criterionDescription String @db.Text
+  dimension       String    @db.VarChar(50)
+  maxScore        Decimal   @db.Decimal(5, 2)
+
+  isChecked       Boolean   @default(false)
+  score           Decimal?  @db.Decimal(5, 2)
+  note            String?   @db.Text
+
+  orderIndex      Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  review          HumanReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@map("checklist_items")
+}
+
+// ─── REPORTES ─────────────────────────────────────────────────────────────────
+
+model ReportRequest {
+  id              String      @id @default(uuid())
+  requestedBy     String
+  submissionId    String?
+
+  type            ReportType
+  title           String      @db.VarChar(300)
+  parameters      Json        // Filters: dateRange, programId, reviewerId, etc.
+
+  status          String      @default("pending") // pending, processing, completed, failed
+  filePath        String?     @db.VarChar(500)
+  fileName        String?     @db.VarChar(255)
+  fileSize        Int?
+
+  generatedAt     DateTime?
+  errorMessage    String?     @db.Text
+
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  requester       User        @relation(fields: [requestedBy], references: [id])
+  submission      Submission? @relation(fields: [submissionId], references: [id])
+
+  @@map("report_requests")
+}
+
+// ─── NOTIFICACIONES ───────────────────────────────────────────────────────────
+
+model Notification {
+  id              String              @id @default(uuid())
+  userId          String
+  type            NotificationType
+  title           String              @db.VarChar(300)
+  message         String              @db.Text
+  data            Json?               // Datos adicionales (submissionId, etc.)
+  isRead          Boolean             @default(false)
+  readAt          DateTime?
+  createdAt       DateTime            @default(now())
+
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+// ─── EMAIL LOGS ───────────────────────────────────────────────────────────────
+
+model EmailLog {
+  id              String    @id @default(uuid())
+  sentBy          String
+  toEmails        Json      // Array of email addresses
+  subject         String    @db.VarChar(500)
+  templateUsed    String?   @db.VarChar(100)
+  status          String    @default("pending") // pending, sent, failed
+  errorMessage    String?   @db.Text
+  sentAt          DateTime?
+  createdAt       DateTime  @default(now())
+
+  sender          User      @relation(fields: [sentBy], references: [id])
+
+  @@map("email_logs")
+}
+
+// ─── AUDITORÍA ────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id              String    @id @default(uuid())
+  userId          String?
+  action          String    @db.VarChar(100)  // CREATE, UPDATE, DELETE, LOGIN, etc.
+  entityType      String    @db.VarChar(100)  // User, Submission, Review, etc.
+  entityId        String?   @db.VarChar(100)
+  description     String    @db.Text
+  metadata        Json?     // Datos adicionales del cambio
+  ipAddress       String?   @db.VarChar(45)
+  userAgent       String?   @db.VarChar(500)
+  createdAt       DateTime  @default(now())
+
+  user            User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ─── CONFIGURACIÓN DEL SISTEMA ────────────────────────────────────────────────
+
+model SystemConfig {
+  id              String    @id @default(uuid())
+  key             String    @unique @db.VarChar(100)
+  value           Json
+  description     String?   @db.Text
+  updatedBy       String?
+  updatedAt       DateTime  @updatedAt
+  createdAt       DateTime  @default(now())
+
+  @@map("system_configs")
+}
+
+// ─── PERÍODOS ACADÉMICOS ──────────────────────────────────────────────────────
+
+model AcademicPeriod {
+  id              String    @id @default(uuid())
+  name            String    @db.VarChar(100)  // "2024-2", "2025-1"
+  startDate       DateTime
+  endDate         DateTime
+  deliveryDeadlines Json?   // Array de fechas de entrega por delivery number
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("academic_periods")
+}
+
+// ─── JOBS DE IA ──────────────────────────────────────────────────────────────
+
+model AIJob {
+  id              String    @id @default(uuid())
+  jobId           String    @unique @db.VarChar(100)  // BullMQ job ID
+  type            String    @db.VarChar(100)           // ANALYZE_SUBMISSION, PROCESS_TEMPLATE, etc.
+  status          String    @default("waiting")        // waiting, active, completed, failed, delayed
+  payload         Json
+  result          Json?
+  attempts        Int       @default(0)
+  maxAttempts     Int       @default(3)
+  errorMessage    String?   @db.Text
+  progress        Int       @default(0)
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([type, status])
+  @@map("ai_jobs")
+}

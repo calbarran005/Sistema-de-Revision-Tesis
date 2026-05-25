@@ -1,0 +1,88 @@
+# Docker Compose para Santos Sistema S6
+# La base de datos MySQL se provee por XAMPP (puerto 3306 local)
+# Este compose levanta los servicios de soporte: Redis, MinIO, MailHog
+
+services:
+  # ─── REDIS (BullMQ + Cache) ───────────────────────────────────────────────
+  redis:
+    image: redis:7.2-alpine
+    container_name: santos_redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --requirepass "${REDIS_PASSWORD:-redis_pass_2024}"
+    healthcheck:
+      test: ['CMD', 'redis-cli', '--no-auth-warning', '-a', '${REDIS_PASSWORD:-redis_pass_2024}', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - santos_network
+
+  # ─── MINIO (Almacenamiento de Documentos) ─────────────────────────────────
+  minio:
+    image: minio/minio:latest
+    container_name: santos_minio
+    restart: unless-stopped
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-santos_admin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-santos_minio_2024}
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - santos_network
+
+  # ─── MAILHOG (Email Testing) ──────────────────────────────────────────────
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: santos_mailhog
+    restart: unless-stopped
+    ports:
+      - '1025:1025'   # SMTP
+      - '8025:8025'   # Web UI
+    networks:
+      - santos_network
+
+  # ─── MINIO SETUP (Crea el bucket inicial) ─────────────────────────────────
+  minio-setup:
+    image: minio/mc:latest
+    container_name: santos_minio_setup
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set santos http://minio:9000 ${MINIO_ACCESS_KEY:-santos_admin} ${MINIO_SECRET_KEY:-santos_minio_2024};
+      mc mb --ignore-existing santos/${MINIO_BUCKET:-santos-documents};
+      mc mb --ignore-existing santos/${MINIO_TEMPLATES_BUCKET:-santos-templates};
+      mc mb --ignore-existing santos/${MINIO_REPORTS_BUCKET:-santos-reports};
+      mc anonymous set download santos/${MINIO_BUCKET:-santos-documents};
+      echo 'MinIO configurado correctamente';
+      exit 0;
+      "
+    networks:
+      - santos_network
+
+# ─── VOLUMES ────────────────────────────────────────────────────────────────
+volumes:
+  redis_data:
+    driver: local
+  minio_data:
+    driver: local
+
+# ─── NETWORKS ────────────────────────────────────────────────────────────────
+networks:
+  santos_network:
+    driver: bridge
+    name: santos_network

@@ -1,0 +1,111 @@
+services:
+  # ─── API NestJS ───────────────────────────────────────────────────────────────
+  - type: web
+    name: santos-api
+    runtime: node
+    plan: free
+    buildCommand: npm install && npx prisma generate --schema=packages/database/prisma/schema.prisma && npm run build --workspace=apps/api
+    startCommand: npx prisma migrate deploy --schema=packages/database/prisma/schema.prisma && node apps/api/dist/main.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # ─── Base de datos (llenar manualmente en Render dashboard) ──────────────
+      - key: DATABASE_URL
+        sync: false
+      # ─── Redis (auto-conectado desde el servicio de abajo) ───────────────────
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: santos-redis
+          property: connectionString
+      # ─── JWT (se generan automáticamente) ────────────────────────────────────
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 30d
+      # ─── Storage / Cloudflare R2 ─────────────────────────────────────────────
+      - key: MINIO_ENDPOINT
+        sync: false   # <ACCOUNT_ID>.r2.cloudflarestorage.com
+      - key: MINIO_PORT
+        value: "443"
+      - key: MINIO_USE_SSL
+        value: "true"
+      - key: MINIO_ACCESS_KEY
+        sync: false
+      - key: MINIO_SECRET_KEY
+        sync: false
+      - key: MINIO_BUCKET
+        value: santos-documents
+      - key: MINIO_TEMPLATES_BUCKET
+        value: santos-templates
+      - key: MINIO_REPORTS_BUCKET
+        value: santos-reports
+      # ─── OpenAI ──────────────────────────────────────────────────────────────
+      - key: AI_PROVIDER
+        value: openai
+      - key: AI_MODEL
+        value: gpt-4o-mini
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_EMBEDDING_MODEL
+        value: text-embedding-3-small
+      # ─── Email (SMTP) ─────────────────────────────────────────────────────────
+      - key: SMTP_HOST
+        sync: false   # smtp.gmail.com
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_SECURE
+        value: "false"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false   # Gmail App Password
+      - key: EMAIL_FROM
+        sync: false
+      - key: EMAIL_FROM_NAME
+        value: "Sistema de Tesis - Universidad"
+      # ─── URLs de producción (llenar después del primer deploy) ───────────────
+      - key: APP_URL
+        sync: false   # https://santos-web.onrender.com
+      - key: API_URL
+        sync: false   # https://santos-api.onrender.com
+      # ─── Config general ──────────────────────────────────────────────────────
+      - key: MAX_FILE_SIZE_MB
+        value: "50"
+      - key: INSTITUTION_NAME
+        value: "Universidad Nacional DE TRUJILLO"
+      - key: INSTITUTION_SHORT
+        value: UNT
+      - key: BCRYPT_ROUNDS
+        value: "10"
+      - key: RATE_LIMIT_TTL
+        value: "60"
+      - key: RATE_LIMIT_MAX
+        value: "100"
+
+  # ─── Frontend Next.js ─────────────────────────────────────────────────────────
+  - type: web
+    name: santos-web
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build --workspace=apps/web
+    startCommand: npm run start --workspace=apps/web
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_API_URL
+        sync: false   # https://santos-api.onrender.com/api/v1
+      - key: NEXT_PUBLIC_WS_URL
+        sync: false   # https://santos-api.onrender.com
+      - key: NEXT_PUBLIC_APP_DOMAIN
+        sync: false   # santos-web.onrender.com  (sin https://)
+
+  # ─── Redis ────────────────────────────────────────────────────────────────────
+  - type: redis
+    name: santos-redis
+    plan: free
+    ipAllowList: []

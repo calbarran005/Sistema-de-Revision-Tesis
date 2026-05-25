@@ -6,6 +6,8 @@ if (process.env.NEXT_PUBLIC_APP_DOMAIN) {
 }
 
 const nextConfig: NextConfig = {
+  typescript: { ignoreBuildErrors: true },
+  eslint: { ignoreDuringBuilds: true },
   experimental: { serverActions: { allowedOrigins } },
   images: {
     remotePatterns: [

@@ -46,7 +46,7 @@ export class AiAnalysisProcessor {
     });
   }
 
-  @Process('analyze')
+  @Process({ name: 'analyze', concurrency: 3 })
   async handleAnalysis(job: Job<AnalysisJobData>) {
     const { submissionId, templateId, studentId, userId, filePath, fileName, mimeType } = job.data;
     const startTime = Date.now();

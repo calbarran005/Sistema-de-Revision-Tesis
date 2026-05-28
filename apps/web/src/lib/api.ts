@@ -110,6 +110,11 @@ export const reportsApi = {
   downloadIndividual: (submissionId: string) => api.get(`/reports/submission/${submissionId}`, { responseType: 'blob' }),
 };
 
+export const thesisGeneratorApi = {
+  generateContent: (data: any) => api.post('/thesis-generator/generate', data),
+  exportPdf: (data: any) => api.post('/thesis-generator/export/pdf', data, { responseType: 'blob' }),
+};
+
 export const usersApi = {
   list: (params?: any) => api.get('/users', { params }),
   get: (id: string) => api.get(`/users/${id}`),

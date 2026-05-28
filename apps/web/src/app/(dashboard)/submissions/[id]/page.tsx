@@ -28,7 +28,10 @@ export default function SubmissionDetailPage({ params }: { params: Promise<Param
   const { data: submission, isLoading } = useQuery({
     queryKey: ['submission', id],
     queryFn: () => submissionsApi.get(id).then(r => r.data.data),
-    refetchInterval: (d) => ['SUBMITTED', 'ANALYZING'].includes(d?.status) ? 3000 : false,
+    refetchInterval: (query: any) => {
+      const status = query.state?.data?.status;
+      return ['SUBMITTED', 'ANALYZING'].includes(status) ? 2500 : false;
+    },
   });
 
   // Cargar URL presignada para la preview del documento

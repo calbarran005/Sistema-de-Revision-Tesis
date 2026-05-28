@@ -4,7 +4,7 @@ import Link from 'next/link';
 import {
   LayoutDashboard, FileText, BookOpen, Users, BarChart3,
   Bell, ChevronLeft, ChevronRight, GraduationCap,
-  FileSearch, ClipboardList, Brain
+  FileSearch, ClipboardList, Brain, ScrollText
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -19,6 +19,7 @@ const navItems = [
   { href: '/reports', label: 'Reportes', icon: FileSearch, roles: ['ADVISOR', 'COORDINATOR', 'ADMIN'] },
   { href: '/statistics', label: 'Estadísticas', icon: BarChart3, roles: ['COORDINATOR', 'ADMIN'] },
   { href: '/users', label: 'Usuarios', icon: Users, roles: ['ADMIN'] },
+  { href: '/thesis-generator', label: 'Generador de Tesis', icon: ScrollText, roles: ['STUDENT', 'ADVISOR', 'COORDINATOR', 'ADMIN'] },
   { href: '/notifications', label: 'Notificaciones', icon: Bell, roles: ['STUDENT', 'ADVISOR', 'COORDINATOR', 'ADMIN'] },
 ];
 

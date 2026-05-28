@@ -17,10 +17,11 @@ export default function SubmissionsPage() {
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['submissions', { search, status, page }],
     queryFn: () => submissionsApi.list({ search, status, page, limit: 15 }).then(r => r.data),
-    refetchInterval: (d) => {
-      // Si hay algún avance en estado intermedio, polleamos más rápido
-      const hasProcessing = d?.data?.some((s: any) => ['SUBMITTED', 'ANALYZING', 'IN_REVIEW'].includes(s.status));
-      return hasProcessing ? 3000 : 8000;
+    refetchInterval: (query: any) => {
+      const submissions = query.state?.data?.data;
+      const hasProcessing = Array.isArray(submissions) &&
+        submissions.some((s: any) => ['SUBMITTED', 'ANALYZING', 'IN_REVIEW'].includes(s.status));
+      return hasProcessing ? 2500 : 8000;
     },
   });
 

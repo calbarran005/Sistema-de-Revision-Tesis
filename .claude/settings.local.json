@@ -48,7 +48,11 @@
       "Bash(git push *)",
       "Bash(git restore *)",
       "Bash(git pull *)",
-      "Bash(git stash *)"
+      "Bash(git stash *)",
+      "Bash(python3 *)",
+      "Bash(npm list *)",
+      "Bash(echo \"API PID: $!\")",
+      "Bash(/opt/lampp/bin/mysql *)"
     ]
   }
 }

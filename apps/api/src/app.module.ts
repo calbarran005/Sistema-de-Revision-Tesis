@@ -17,6 +17,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { StorageModule } from './modules/storage/storage.module';
 import { EmailModule } from './modules/email/email.module';
 import { AuditModule } from './modules/audit/audit.module';
+import { ThesisGeneratorModule } from './modules/thesis-generator/thesis-generator.module';
 
 @Module({
   imports: [
@@ -79,6 +80,7 @@ import { AuditModule } from './modules/audit/audit.module';
     StorageModule,
     EmailModule,
     AuditModule,
+    ThesisGeneratorModule,
   ],
 })
 export class AppModule {}

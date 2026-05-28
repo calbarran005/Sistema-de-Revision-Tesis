@@ -152,11 +152,13 @@ export class ReviewsService {
     };
 
     if (studentEmail) {
-      await this.email.sendReviewComplete(studentEmail, emailData, pdfBuffer);
+      this.email.sendReviewComplete(studentEmail, emailData, pdfBuffer)
+        .catch((err) => this.logger.warn(`Email revisión no enviado: ${err.message}`));
     }
 
     if (notificationEmail && notificationEmail !== studentEmail) {
-      await this.email.sendReviewComplete(notificationEmail, emailData, pdfBuffer);
+      this.email.sendReviewComplete(notificationEmail, emailData, pdfBuffer)
+        .catch((err) => this.logger.warn(`Email revisión (asesor) no enviado: ${err.message}`));
     }
 
     return { success: true, decision };

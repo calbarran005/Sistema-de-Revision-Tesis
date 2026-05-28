@@ -192,16 +192,16 @@ export class SubmissionsService {
       });
     }
 
-    // Enviar email de confirmación al estudiante
+    // Enviar email de confirmación al estudiante (fire-and-forget para no bloquear la respuesta)
     const studentEmail = submission.student?.user?.email;
     const studentName = `${submission.student?.user?.firstName || ''} ${submission.student?.user?.lastName || ''}`.trim();
     if (studentEmail) {
-      await this.email.sendSubmissionReceived(studentEmail, {
+      this.email.sendSubmissionReceived(studentEmail, {
         studentName,
         submissionTitle: body.title,
         submissionId: submission.id,
         appUrl: this.config.get('APP_URL', 'http://localhost:3000'),
-      });
+      }).catch((err) => this.logger.warn(`Email confirmación no enviado: ${err.message}`));
     }
 
     this.logger.log(`Submission creada: ${submission.id} para estudiante ${studentId}`);

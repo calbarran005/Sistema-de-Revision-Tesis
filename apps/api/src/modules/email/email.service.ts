@@ -25,6 +25,9 @@ export class EmailService {
       secure,
       auth: user ? { user, pass } : undefined,
       tls: { rejectUnauthorized: false },
+      connectionTimeout: 5000,
+      greetingTimeout: 5000,
+      socketTimeout: 10000,
     });
   }
 

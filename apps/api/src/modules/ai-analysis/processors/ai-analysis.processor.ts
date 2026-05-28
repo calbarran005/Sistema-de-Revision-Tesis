@@ -312,14 +312,14 @@ export class AiAnalysisProcessor {
         });
 
         if (student.user?.email && submissionTitle) {
-          await this.email.sendAnalysisComplete(student.user.email, {
+          this.email.sendAnalysisComplete(student.user.email, {
             studentName: `${student.user.firstName} ${student.user.lastName}`,
             submissionTitle: submissionTitle.title,
             complianceScore,
             finalGrade,
             submissionId,
             appUrl: this.config.get('APP_URL', 'http://localhost:3000'),
-          });
+          }).catch((err) => this.logger.warn(`Email análisis no enviado: ${err.message}`));
         }
       }
 

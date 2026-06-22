@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { ScrollText, Loader2, Download, FileText, ChevronRight, RefreshCw, Eye, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { thesisGeneratorApi } from '@/lib/api';
 import { generateDocxBlob } from './utils/docx-generator';
+import { UNT_LOGO_BASE64 } from './utils/unt-logo';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const RESEARCH_LINES = [
@@ -44,7 +45,18 @@ interface ThesisContent {
   references: string[];
   problemTree: { centralProblem: string; causes: string[]; effects: string[] };
   objectiveTree: { mainObjective: string; means: string[]; ends: string[] };
+  method?: Record<string, any>;
+  administrative?: Record<string, any>;
+  consistencyMatrix?: Record<string, any>;
+  instruments?: any[];
+  results?: { title?: string; content?: string }[];
+  discussion?: string;
+  conclusions?: string[];
+  recommendations?: string[];
+  article?: Record<string, any>;
 }
+
+type DocType = 'proyecto' | 'tesis' | 'articulo';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function Label({ text, required }: { text: string; required?: boolean }) {
@@ -77,8 +89,8 @@ export default function ThesisGeneratorPage() {
   const [step, setStep] = useState<'form' | 'generating' | 'preview'>('form');
   const [generatedContent, setGeneratedContent] = useState<ThesisContent | null>(null);
   const [generationError, setGenerationError] = useState('');
-  const [pdfLoading, setPdfLoading] = useState(false);
-  const [docxLoading, setDocxLoading] = useState(false);
+  // Acción de descarga en curso, ej. 'proyecto-pdf' | 'tesis-docx' | null
+  const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'intro' | 'refs' | 'trees' | 'raw'>('intro');
 
   const {
@@ -124,6 +136,15 @@ export default function ThesisGeneratorPage() {
         references: Array.isArray(raw.references) ? raw.references : [],
         problemTree: raw.problemTree || raw.problem_tree || { centralProblem: '', causes: [], effects: [] },
         objectiveTree: raw.objectiveTree || raw.objective_tree || { mainObjective: '', means: [], ends: [] },
+        method: raw.method || {},
+        administrative: raw.administrative || {},
+        consistencyMatrix: raw.consistencyMatrix || raw.consistency_matrix || {},
+        instruments: Array.isArray(raw.instruments) ? raw.instruments : [],
+        results: Array.isArray(raw.results) ? raw.results : [],
+        discussion: raw.discussion || '',
+        conclusions: Array.isArray(raw.conclusions) ? raw.conclusions : [],
+        recommendations: Array.isArray(raw.recommendations) ? raw.recommendations : [],
+        article: raw.article || {},
       };
       if (!content.introduction && !content.references.length) {
         throw new Error('La IA no generó contenido. Intente nuevamente.');
@@ -136,42 +157,44 @@ export default function ThesisGeneratorPage() {
     }
   };
 
-  const handleDownloadPdf = async () => {
+  const fileBase = (docType: DocType) =>
+    docType === 'tesis' ? 'tesis' : docType === 'articulo' ? 'articulo-rcsi' : 'proyecto-de-tesis';
+
+  const triggerDownload = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadPdf = async (docType: DocType) => {
     if (!generatedContent) return;
-    setPdfLoading(true);
+    setLoadingAction(`${docType}-pdf`);
     try {
       const formData = buildPayload(getValues());
-      const res = await thesisGeneratorApi.exportPdf({ formData, content: generatedContent });
+      const res = await thesisGeneratorApi.exportPdf({ formData, content: generatedContent, documentType: docType });
       const blob = new Blob([res.data], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `proyecto-de-tesis-${Date.now()}.pdf`;
-      link.click();
-      URL.revokeObjectURL(url);
+      triggerDownload(blob, `${fileBase(docType)}-${Date.now()}.pdf`);
     } catch {
       alert('Error al generar el PDF. Intente nuevamente.');
     } finally {
-      setPdfLoading(false);
+      setLoadingAction(null);
     }
   };
 
-  const handleDownloadDocx = async () => {
+  const handleDownloadDocx = async (docType: DocType) => {
     if (!generatedContent) return;
-    setDocxLoading(true);
+    setLoadingAction(`${docType}-docx`);
     try {
       const formData = buildPayload(getValues());
-      const blob = await generateDocxBlob(formData, generatedContent);
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `proyecto-de-tesis-${Date.now()}.docx`;
-      link.click();
-      URL.revokeObjectURL(url);
+      const blob = await generateDocxBlob(formData, generatedContent, docType);
+      triggerDownload(blob, `${fileBase(docType)}-${Date.now()}.docx`);
     } catch {
       alert('Error al generar el Word. Intente nuevamente.');
     } finally {
-      setDocxLoading(false);
+      setLoadingAction(null);
     }
   };
 
@@ -182,19 +205,22 @@ export default function ThesisGeneratorPage() {
         <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
           <Loader2 size={36} className="text-blue-600 animate-spin" />
         </div>
-        <h2 className="text-xl font-bold text-gray-900">Generando Proyecto de Tesis</h2>
+        <h2 className="text-xl font-bold text-gray-900">Generando Proyecto, Tesis y Artículo</h2>
         <p className="text-gray-500 text-sm">
-          La IA está redactando la introducción completa, referencias bibliográficas APA V7
-          y los árboles de problemas y objetivos. Este proceso puede tardar entre 30 y 60 segundos.
+          La IA está redactando el Proyecto de Tesis (Cap. I-III), la Tesis (Informe Final con
+          Resultados, Discusión, Conclusiones y Recomendaciones) y el Artículo Científico (plantilla
+          RCSI), las referencias APA y los anexos. Este proceso puede tardar entre 40 y 90 segundos.
         </p>
         <div className="space-y-2 text-left bg-blue-50 border border-blue-100 rounded-xl p-4">
           {[
-            'Analizando el tema de investigación...',
-            'Redactando realidad problemática y antecedentes...',
-            'Generando marco teórico y 3 metodologías...',
-            'Formulando hipótesis, objetivos y limitaciones...',
-            'Compilando 30+ referencias APA V7...',
-            'Construyendo árbol de problemas y objetivos...',
+            'Redactando Cap. I: realidad problemática, antecedentes y marco teórico...',
+            'Compilando 30+ referencias bibliográficas APA...',
+            'Generando Cap. II: tipo, diseño, población, variables y procedimiento...',
+            'Generando Cap. III: recursos, presupuesto, financiamiento y cronograma...',
+            'Redactando Resultados, Discusión, Conclusiones y Recomendaciones (Tesis)...',
+            'Redactando el Artículo Científico (abstract, IMRyD) con plantilla RCSI...',
+            'Construyendo matriz de consistencia, árboles e instrumentos...',
+            'Ensamblando los tres documentos con el formato oficial...',
           ].map((step, i) => (
             <div key={i} className="flex items-center gap-2 text-sm text-blue-700">
               <div className="analyzing-dot w-1.5 h-1.5 bg-blue-500 rounded-full flex-shrink-0" style={{ animationDelay: `${i * 0.3}s` }} />
@@ -218,33 +244,49 @@ export default function ThesisGeneratorPage() {
         {/* Header */}
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="section-title flex items-center gap-2"><ScrollText size={22} /> Proyecto de Tesis Generado</h1>
+            <h1 className="section-title flex items-center gap-2"><ScrollText size={22} /> Documentos Generados</h1>
             <p className="text-gray-500 text-sm mt-1 max-w-2xl">{fv.title}</p>
           </div>
-          <div className="flex gap-2 flex-wrap">
-            <button
-              onClick={() => setStep('form')}
-              className="flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
-            >
-              <RefreshCw size={15} /> Regenerar
-            </button>
-            <button
-              onClick={handleDownloadDocx}
-              disabled={docxLoading}
-              className="flex items-center gap-1.5 px-3 py-2 border border-blue-300 bg-blue-50 text-blue-700 rounded-lg text-sm hover:bg-blue-100 disabled:opacity-60"
-            >
-              {docxLoading ? <Loader2 size={15} className="animate-spin" /> : <FileText size={15} />}
-              Descargar Word
-            </button>
-            <button
-              onClick={handleDownloadPdf}
-              disabled={pdfLoading}
-              className="flex items-center gap-1.5 px-4 py-2 btn-primary text-sm disabled:opacity-60"
-            >
-              {pdfLoading ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
-              Descargar PDF
-            </button>
-          </div>
+          <button
+            onClick={() => setStep('form')}
+            className="flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+          >
+            <RefreshCw size={15} /> Regenerar
+          </button>
+        </div>
+
+        {/* Download cards: Proyecto, Tesis y Artículo */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {([
+            { type: 'proyecto' as DocType, title: 'Proyecto de Tesis', desc: 'Cap. I-III (Aspectos Administrativos), referencias y anexos' },
+            { type: 'tesis' as DocType, title: 'Tesis (Informe Final)', desc: 'Cap. I-IV (Resultados, Discusión), conclusiones y recomendaciones' },
+            { type: 'articulo' as DocType, title: 'Artículo Científico', desc: 'Plantilla RCSI: abstract/resumen, IMRyD, CRediT y referencias' },
+          ]).map(({ type, title, desc }) => (
+            <div key={type} className="card p-4 space-y-3">
+              <div>
+                <p className="font-semibold text-[#1e3a5f] text-sm flex items-center gap-1.5"><ScrollText size={16} /> {title}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{desc}</p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleDownloadDocx(type)}
+                  disabled={loadingAction !== null}
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border border-blue-300 bg-blue-50 text-blue-700 rounded-lg text-sm hover:bg-blue-100 disabled:opacity-60"
+                >
+                  {loadingAction === `${type}-docx` ? <Loader2 size={15} className="animate-spin" /> : <FileText size={15} />}
+                  Word
+                </button>
+                <button
+                  onClick={() => handleDownloadPdf(type)}
+                  disabled={loadingAction !== null}
+                  className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 btn-primary text-sm disabled:opacity-60"
+                >
+                  {loadingAction === `${type}-pdf` ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
+                  PDF
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
 
         {/* Stats bar */}
@@ -269,9 +311,12 @@ export default function ThesisGeneratorPage() {
             <p className="font-bold text-[#1e3a5f] text-sm uppercase">Universidad Nacional de Trujillo</p>
             <p className="text-sm font-semibold uppercase">Facultad de Ingeniería</p>
             <p className="text-sm uppercase">Programa de Estudios de Ingeniería de Sistemas</p>
-            <div className="my-3 w-12 h-12 mx-auto border-2 border-[#1e3a5f] rounded-full flex items-center justify-center">
-              <span className="text-xs font-bold text-[#1e3a5f]">UNT</span>
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`data:image/png;base64,${UNT_LOGO_BASE64}`}
+              alt="Universidad Nacional de Trujillo"
+              className="my-3 mx-auto h-16 w-auto"
+            />
             <p className="text-xs border-t border-b border-gray-300 py-1 font-bold uppercase">Informe de Proyecto de Tesis</p>
             <p className="text-sm font-bold mt-2 max-w-sm mx-auto">{fv.title}</p>
             <div className="mt-2 text-xs text-gray-600">
@@ -405,10 +450,11 @@ export default function ThesisGeneratorPage() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
-        <h1 className="section-title flex items-center gap-2"><ScrollText size={22} /> Generador de Proyecto de Tesis</h1>
+        <h1 className="section-title flex items-center gap-2"><ScrollText size={22} /> Generador de Tesis</h1>
         <p className="text-gray-500 text-sm mt-1">
-          Completa los datos y el sistema generará automáticamente el Informe de Proyecto de Tesis
-          siguiendo el esquema oficial de la Universidad Nacional de Trujillo.
+          Completa los datos y el sistema generará automáticamente <strong>tres documentos</strong>: el
+          Informe de Proyecto de Tesis, la Tesis (Informe Final) y un Artículo Científico (plantilla
+          RCSI), siguiendo los esquemas oficiales de la Universidad Nacional de Trujillo.
         </p>
       </div>
 
@@ -511,19 +557,23 @@ export default function ThesisGeneratorPage() {
         <div className="card p-4 bg-blue-50 border-blue-100 space-y-2">
           <p className="text-sm font-medium text-blue-800">¿Qué genera el sistema?</p>
           <ul className="text-xs text-blue-700 space-y-1">
-            <li className="flex items-center gap-1.5"><ChevronRight size={12} /> Carátula con logotipo institucional y todos los datos</li>
+            <li className="flex items-center gap-1.5"><ChevronRight size={12} /> Carátula con el logotipo oficial de la UNT y todos los datos</li>
             <li className="flex items-center gap-1.5"><ChevronRight size={12} /> Jurado dictaminador e índice general</li>
-            <li className="flex items-center gap-1.5"><ChevronRight size={12} /> Capítulo I completo: prosa continua de 2000+ palabras con realidad problemática, antecedentes, marco teórico (3 metodologías), justificación, hipótesis, objetivos y limitaciones</li>
-            <li className="flex items-center gap-1.5"><ChevronRight size={12} /> 30+ referencias bibliográficas en APA V7 (80% inglés, 80% últimos 5 años, 80% indexadas)</li>
-            <li className="flex items-center gap-1.5"><ChevronRight size={12} /> Árbol de problemas y árbol de objetivos</li>
-            <li className="flex items-center gap-1.5"><ChevronRight size={12} /> Declaración jurada firmada</li>
-            <li className="flex items-center gap-1.5"><ChevronRight size={12} /> Exportación en PDF (Arial Narrow 12pt, márgenes APA) y Word (.docx)</li>
+            <li className="flex items-center gap-1.5"><ChevronRight size={12} /> Capítulo I (Introducción): prosa continua de 2200+ palabras (realidad problemática, antecedentes, marco teórico con 3 metodologías, justificación, hipótesis, objetivos y limitaciones)</li>
+            <li className="flex items-center gap-1.5"><ChevronRight size={12} /> Capítulo II (Método): tipo, nivel y diseño, población/muestra/muestreo, variables, técnicas, validación, análisis de datos, procedimiento y ética</li>
+            <li className="flex items-center gap-1.5"><ChevronRight size={12} /> Capítulo III (Aspectos Administrativos): tablas de recursos y presupuesto, financiamiento y cronograma (Gantt)</li>
+            <li className="flex items-center gap-1.5"><ChevronRight size={12} /> <strong>Además, la Tesis (Informe Final):</strong> Cap. III Resultados, Cap. IV Discusión, Conclusiones y Recomendaciones</li>
+            <li className="flex items-center gap-1.5"><ChevronRight size={12} /> <strong>Y un Artículo Científico (plantilla RCSI):</strong> título EN/ES, abstract/resumen, keywords, IMRyD, contribución de autoría (CRediT) y referencias</li>
+            <li className="flex items-center gap-1.5"><ChevronRight size={12} /> 30+ referencias bibliográficas en APA</li>
+            <li className="flex items-center gap-1.5"><ChevronRight size={12} /> Anexos: matriz de consistencia, árboles de problemas y objetivos, operacionalización, instrumentos y constancia</li>
+            <li className="flex items-center gap-1.5"><ChevronRight size={12} /> Declaración jurada firmada · Documento de 25+ páginas</li>
+            <li className="flex items-center gap-1.5"><ChevronRight size={12} /> Exportación en PDF (Arial Narrow 12pt, márgenes UNT) y Word (.docx)</li>
           </ul>
         </div>
 
         {/* SUBMIT */}
         <button type="submit" className="btn-primary w-full py-3 flex items-center justify-center gap-2 text-base">
-          <ScrollText size={18} /> Generar Proyecto de Tesis Completo
+          <ScrollText size={18} /> Generar Proyecto, Tesis y Artículo
         </button>
       </form>
     </div>

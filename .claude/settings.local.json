@@ -52,7 +52,15 @@
       "Bash(python3 *)",
       "Bash(npm list *)",
       "Bash(echo \"API PID: $!\")",
-      "Bash(/opt/lampp/bin/mysql *)"
+      "Bash(/opt/lampp/bin/mysql *)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(echo \"TSC_EXIT=$?\")",
+      "Bash(echo \"exit grep: $?\")",
+      "Bash(echo \"=== thesis-generator errors above \\(none = OK\\) exit:$? ===\")",
+      "Bash(mkdir -p /tmp/rcsi)",
+      "Bash(unzip -o \"PLANTILLA-RCSI-Submission Template-OTH.docx\" -d /tmp/rcsi)",
+      "Read(//tmp/rcsi/**)",
+      "Read(//tmp/rcsi/word/**)"
     ]
   }
 }

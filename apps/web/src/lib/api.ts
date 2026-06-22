@@ -115,6 +115,17 @@ export const thesisGeneratorApi = {
   exportPdf: (data: any) => api.post('/thesis-generator/export/pdf', data, { responseType: 'blob' }),
 };
 
+export const chatbotApi = {
+  ask: (message: string, history?: { role: 'user' | 'assistant'; content: string }[]) =>
+    api.post('/chatbot/ask', { message, history }),
+  tts: (text: string) => api.post('/chatbot/tts', { text }, { responseType: 'blob' }),
+  transcribe: (audio: Blob) => {
+    const fd = new FormData();
+    fd.append('audio', audio, 'audio.webm');
+    return api.post('/chatbot/transcribe', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+  },
+};
+
 export const usersApi = {
   list: (params?: any) => api.get('/users', { params }),
   get: (id: string) => api.get(`/users/${id}`),

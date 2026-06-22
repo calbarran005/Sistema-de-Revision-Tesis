@@ -6,6 +6,7 @@ import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
 import { useNotificationsStore } from '@/store/notifications.store';
 import { notificationsApi } from '@/lib/api';
+import { ChatbotWidget } from '@/components/chatbot/chatbot-widget';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, user } = useAuthStore();
@@ -59,6 +60,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {children}
         </main>
       </div>
+      <ChatbotWidget />
     </div>
   );
 }

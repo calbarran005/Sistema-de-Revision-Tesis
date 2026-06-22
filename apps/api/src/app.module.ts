@@ -18,6 +18,7 @@ import { StorageModule } from './modules/storage/storage.module';
 import { EmailModule } from './modules/email/email.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { ThesisGeneratorModule } from './modules/thesis-generator/thesis-generator.module';
+import { ChatbotModule } from './modules/chatbot/chatbot.module';
 
 @Module({
   imports: [
@@ -81,6 +82,7 @@ import { ThesisGeneratorModule } from './modules/thesis-generator/thesis-generat
     EmailModule,
     AuditModule,
     ThesisGeneratorModule,
+    ChatbotModule,
   ],
 })
 export class AppModule {}
